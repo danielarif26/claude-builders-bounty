@@ -28,7 +28,19 @@ else
 fi
 
 # --- collect commits ---------------------------------------------------------
-RAW="$(git log --pretty=format:'%h|%s' "$RANGE" 2>/dev/null || true)"
+# Fail loudly when the requested range is invalid. A typo'd tag or running
+# outside a repo would otherwise silently produce an empty changelog.
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "changelog.sh: not inside a git repository" >&2
+  exit 1
+fi
+if [[ -n "$SINCE" ]]; then
+  if ! git rev-parse --verify --quiet "${SINCE}^{commit}" >/dev/null 2>&1; then
+    echo "changelog.sh: invalid git range '${SINCE}' (tag/commit not found)" >&2
+    exit 1
+  fi
+fi
+RAW="$(git log --pretty=format:'%h|%s' "$RANGE")"
 
 # --- categorize (no associative arrays, portable to stock bash 3.2) ----------
 declare -a CAT_ARR=()
@@ -42,12 +54,20 @@ trap 'rm -f "$TMP"' EXIT
 
 while IFS='|' read -r hash subject; do
   [[ -z "$hash" ]] && continue
-  case "$subject" in
-    feat:*|add:*|new:*|feature:*) key="Added" ;;
-    fix:*|bugfix:*|hotfix:*)      key="Fixed" ;;
-    remove:*|delete:*|rm:*)       key="Removed" ;;
-    *)                            key="Changed" ;;
-  esac
+  # Recognize conventional-commit subjects with optional scope/breaking marker:
+#   feat(api)!, fix(scope):, revert:, etc.
+PAT_ADDED='^(feat|add|new|feature)(\([^)]*\))?(!)?:'
+PAT_FIXED='^(fix|bugfix|hotfix|revert)(\([^)]*\))?(!)?:'
+PAT_REMOVED='^(remove|delete|rm)(\([^)]*\))?(!)?:'
+if [[ "$subject" =~ $PAT_ADDED ]]; then
+    key="Added"
+elif [[ "$subject" =~ $PAT_FIXED ]]; then
+    key="Fixed"
+elif [[ "$subject" =~ $PAT_REMOVED ]]; then
+    key="Removed"
+else
+    key="Changed"
+fi
   # only honor categories the caller requested; anything else folds into Changed
   found=0
   for c in "${CAT_ARR[@]}"; do [[ "$c" == "$key" ]] && found=1 && break; done
