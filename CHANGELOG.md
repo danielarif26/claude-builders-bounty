@@ -1,10 +1,17 @@
 # Changelog
 
-_Generated 2026-09-16T01:36:38Z from git range `all history`._
+_Generated 2026-09-17T05:13:04Z from git range `all history`._
 
 ## Added
 
+- 0168de5  feat: generate-changelog skill + bash script (bounty #1)
 - 1aeae2a  feat: initial README with bounty board
+## Fixed
+
+- 225a649  fix: handle scoped/breaking conventional-commit subjects (#376)
 ## Changed
 
+- 524be41  docs: restore upstream README.md
+- 3ec659c  docs: preserve upstream README, add usage under README.md
+- 4089056  docs: preserve upstream README, add usage under USAGE.md
 - a80a580  Initial commit
